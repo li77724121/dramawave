@@ -11,7 +11,7 @@ import { composePrompt } from "../lib/prompt";
 import { generateImage, fileToDataUrl } from "../lib/generate";
 import { loadProjects, saveProjects } from "../lib/storage";
 import { SAMPLE_SCRIPT } from "../lib/sample";
-import { log } from "../lib/logger";
+import { log, getLogs, subscribeLogs } from "../lib/logger";
 import { uid, type Project, type Shot, type TabId } from "../lib/types";
 
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -37,7 +37,12 @@ export function Studio() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
-  const [logOpen, setLogOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(
+    () => new URLSearchParams(window.location.search).get("logs") === "1",
+  );
+  const [logErrorCount, setLogErrorCount] = useState(
+    () => getLogs().filter((entry) => entry.level === "error").length,
+  );
   const toastTimer = useRef<number | null>(null);
   const importRef = useRef<HTMLInputElement | null>(null);
 
@@ -60,6 +65,12 @@ export function Studio() {
       log.error("storage", "项目保存失败", error);
     }
   }, [projects]);
+
+  useEffect(() => {
+    const update = () => setLogErrorCount(getLogs().filter((entry) => entry.level === "error").length);
+    update();
+    return subscribeLogs(update);
+  }, []);
 
   const updateProject = useCallback(
     (patch: Partial<Project>) => {
@@ -251,7 +262,14 @@ export function Studio() {
                 {storageWarning}
               </span>
             ) : null}
-            <Button className="px-2" onClick={() => setLogOpen(true)}>日志</Button>
+            <Button className="px-2" onClick={() => setLogOpen(true)}>
+              运行日志
+              {logErrorCount > 0 ? (
+                <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-semibold text-white">
+                  {logErrorCount > 99 ? "99+" : logErrorCount}
+                </span>
+              ) : null}
+            </Button>
             <Button className="hidden sm:inline-flex" onClick={() => importRef.current?.click()}>导入</Button>
             <Button variant="primary" onClick={createProject}>+ 新建</Button>
             <input
@@ -382,6 +400,10 @@ export function Studio() {
         </main>
       </div>
 
+      <footer className="px-4 pb-5 text-center text-[10px] text-white/20">
+        遇到问题？点顶部「运行日志」，下载记录后反馈。
+      </footer>
+
       <LogPanel open={logOpen} onClose={() => setLogOpen(false)} />
 
       {toast ? (
@@ -393,6 +415,7 @@ export function Studio() {
           }`}
         >
           {toast.message}
+          {toast.tone === "error" ? <span className="ml-1 text-white/50">· 已记入日志</span> : null}
         </div>
       ) : null}
     </div>

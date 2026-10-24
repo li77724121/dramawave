@@ -9,7 +9,7 @@ import { Button, Modal, TextInput } from "./components/ui";
 import { loadData, putBlob, saveData, deleteBlob } from "./lib/storage";
 import { splitRevenue, formatCoins, fenToYuan } from "./lib/money";
 import { dataUrlToCover } from "./lib/image";
-import { log } from "./lib/logger";
+import { getLogs, log, subscribeLogs } from "./lib/logger";
 import { uid, type AppData, type Episode, type Series } from "./lib/types";
 
 export type Route =
@@ -49,7 +49,12 @@ export default function App() {
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [creatorDraft, setCreatorDraft] = useState("");
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
-  const [logOpen, setLogOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(
+    () => new URLSearchParams(window.location.search).get("logs") === "1",
+  );
+  const [logErrorCount, setLogErrorCount] = useState(
+    () => getLogs().filter((entry) => entry.level === "error").length,
+  );
   const toastTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -62,6 +67,12 @@ export default function App() {
       log.error("storage", "本地数据保存失败", error);
     }
   }, [data]);
+
+  useEffect(() => {
+    const update = () => setLogErrorCount(getLogs().filter((entry) => entry.level === "error").length);
+    update();
+    return subscribeLogs(update);
+  }, []);
 
   const notify = (message: string, tone: "ok" | "error" = "ok") => {
     if (tone === "error") log.warn("ui", message);
@@ -386,6 +397,7 @@ export default function App() {
           }`}
         >
           {toast.message}
+          {toast.tone === "error" ? <span className="ml-1 text-white/50">· 已记入日志</span> : null}
         </div>
       ) : null}
     </>
@@ -403,6 +415,7 @@ export default function App() {
         onSelect={(episode) => requestPlay(episode)}
         onUnlock={(episode) => setPending(episode)}
         onOpenLogs={() => setLogOpen(true)}
+        logErrorCount={logErrorCount}
       />
       {overlays}
       </>
@@ -445,7 +458,14 @@ export default function App() {
               </span>
             ) : null}
             <span className="chip">{data.wallet.balanceCoins} 币</span>
-            <Button variant="plain" className="px-2 text-white/55" onClick={() => setLogOpen(true)}>日志</Button>
+            <Button variant="plain" className="px-2 text-white/55" onClick={() => setLogOpen(true)}>
+              运行日志
+              {logErrorCount > 0 ? (
+                <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-semibold text-white">
+                  {logErrorCount > 99 ? "99+" : logErrorCount}
+                </span>
+              ) : null}
+            </Button>
             <Button variant="primary" onClick={() => setRechargeOpen(true)}>充值</Button>
           </div>
         </div>
@@ -481,7 +501,8 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 py-8 pb-24 text-[10.5px] text-white/25 md:pb-8">
-        剧浪 DramaWave · 演示环境：视频只存本地浏览器，充值与提现均为模拟，平台按每集收入的 1% 抽成。
+        <p>剧浪 DramaWave · 演示环境：视频只存本地浏览器，充值与提现均为模拟，平台按每集收入的 1% 抽成。</p>
+        <p className="mt-1">遇到问题？点右上角「运行日志」，下载记录后反馈。</p>
       </footer>
 
       {/* 移动端底部导航：桌面端用顶部导航 */}
@@ -507,9 +528,14 @@ export default function App() {
           <button
             type="button"
             onClick={() => setLogOpen(true)}
-            className="flex-1 py-3 text-[11px] text-white/45 transition hover:text-white"
+            className="flex flex-1 items-center justify-center gap-1 py-3 text-[11px] text-white/45 transition hover:text-white"
           >
             日志
+            {logErrorCount > 0 ? (
+              <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-semibold text-white">
+                {logErrorCount > 99 ? "99+" : logErrorCount}
+              </span>
+            ) : null}
           </button>
         </div>
       </nav>

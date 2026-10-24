@@ -13,9 +13,10 @@ interface Props {
   onSelect: (episode: Episode) => void;
   onUnlock: (episode: Episode) => void;
   onOpenLogs: () => void;
+  logErrorCount: number;
 }
 
-export function Player({ episode, series, episodes, unlocked, onClose, onSelect, onUnlock, onOpenLogs }: Props) {
+export function Player({ episode, series, episodes, unlocked, onClose, onSelect, onUnlock, onOpenLogs, logErrorCount }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ended, setEnded] = useState(false);
@@ -91,9 +92,14 @@ export function Player({ episode, series, episodes, unlocked, onClose, onSelect,
         <button
           type="button"
           onClick={onOpenLogs}
-          className="ml-auto rounded-lg bg-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:bg-white/15"
+          className="ml-auto flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:bg-white/15"
         >
           日志
+          {logErrorCount > 0 ? (
+            <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-semibold text-white">
+              {logErrorCount > 99 ? "99+" : logErrorCount}
+            </span>
+          ) : null}
         </button>
         <span className="text-[10.5px] text-white/35">
           {episode.priceCoins === 0 ? "免费" : `已解锁 · ${episode.priceCoins} 币`}
