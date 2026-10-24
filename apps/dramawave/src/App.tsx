@@ -4,10 +4,12 @@ import { SeriesView } from "./components/SeriesView";
 import { Player } from "./components/Player";
 import { Creator } from "./components/Creator";
 import { WalletView } from "./components/Wallet";
+import { LogPanel } from "./components/LogPanel";
 import { Button, Modal, TextInput } from "./components/ui";
 import { loadData, putBlob, saveData, deleteBlob } from "./lib/storage";
 import { splitRevenue, formatCoins, fenToYuan } from "./lib/money";
 import { dataUrlToCover } from "./lib/image";
+import { log } from "./lib/logger";
 import { uid, type AppData, type Episode, type Series } from "./lib/types";
 
 export type Route =
@@ -47,6 +49,7 @@ export default function App() {
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [creatorDraft, setCreatorDraft] = useState("");
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
   const toastTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -54,13 +57,14 @@ export default function App() {
       saveData(data);
       setStorageWarning(null);
     } catch (error) {
-      setStorageWarning(
-        error instanceof Error ? error.message : "本地存储写入失败，可能是空间不足",
-      );
+      const message = error instanceof Error ? error.message : "本地存储写入失败，可能是空间不足";
+      setStorageWarning(message);
+      log.error("storage", "本地数据保存失败", error);
     }
   }, [data]);
 
   const notify = (message: string, tone: "ok" | "error" = "ok") => {
+    if (tone === "error") log.warn("ui", message);
     setToast({ message, tone });
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 2600);
@@ -82,6 +86,7 @@ export default function App() {
       .sort((a, b) => a.number - b.number);
 
   const openPlayer = (episode: Episode) => {
+    log.info("play", `播放《${seriesById.get(episode.seriesId)?.title ?? "未知剧集"}》第 ${episode.number} 集`, `episode=${episode.id}`);
     setRoute({ name: "player", episodeId: episode.id });
     setData((prev) => ({
       ...prev,
@@ -95,6 +100,7 @@ export default function App() {
 
   const requestPlay = (episode: Episode) => {
     if (!episode.published) {
+      log.warn("play", "尝试播放未发布剧集", `episode=${episode.id}`);
       notify("这一集还没发布", "error");
       return;
     }
@@ -109,6 +115,7 @@ export default function App() {
     const episode = pending;
     if (!episode) return;
     if (data.wallet.balanceCoins < episode.priceCoins) {
+      log.warn("wallet", "余额不足，转充值", `需要 ${episode.priceCoins} 币，当前 ${data.wallet.balanceCoins} 币`);
       setPending(null);
       setRechargeOpen(true);
       notify("余额不足，先充一点测试币", "error");
@@ -134,6 +141,7 @@ export default function App() {
     }));
     setPending(null);
     openPlayer(episode);
+    log.info("wallet", "解锁成功", `《${series?.title ?? "剧集"}》第 ${episode.number} 集 · ${episode.priceCoins} 币 · 平台 ${split.feeFen} 分 / 创作者 ${split.creatorFen} 分`);
     notify(`解锁成功，平台抽成 ¥${fenToYuan(split.feeFen)}`);
   };
 
@@ -156,6 +164,7 @@ export default function App() {
       ],
     }));
     setRechargeOpen(false);
+    log.info("wallet", "测试充值", `+${coins} 币`);
     notify(`已充值 ${formatCoins(coins)}（测试）`);
   };
 
@@ -176,6 +185,7 @@ export default function App() {
         ...prev.ledger,
       ],
     }));
+    log.info("wallet", "提交提现申请", `¥${fenToYuan(fen)}（测试）`);
     notify(`已提交提现 ¥${fenToYuan(fen)}（测试）`);
   };
 
@@ -196,13 +206,16 @@ export default function App() {
         createdAt: Date.now(),
       };
       setData((prev) => ({ ...prev, series: [series, ...prev.series] }));
+      log.info("creator", "创建剧集", `${series.title} · ${series.id}`);
       return series.id;
     },
-    updateSeries: (id, patch) =>
+    updateSeries: (id, patch) => {
+      log.info("creator", "更新剧集", `${id} · ${Object.keys(patch).join(",")}`);
       setData((prev) => ({
         ...prev,
         series: prev.series.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-      })),
+      }));
+    },
     deleteSeries: (id) => {
       const episodes = data.episodes.filter((episode) => episode.seriesId === id);
       episodes.forEach((episode) => {
@@ -213,14 +226,17 @@ export default function App() {
         series: prev.series.filter((item) => item.id !== id),
         episodes: prev.episodes.filter((episode) => episode.seriesId !== id),
       }));
+      log.info("creator", "删除剧集", `${id} · 同时删除 ${episodes.length} 集`);
       setRoute({ name: "creator" });
     },
     addEpisode: async (seriesId, input) => {
       if (!input.file.type.startsWith("video/")) {
+        log.warn("upload", "拒绝非视频文件", `${input.file.name} · ${input.file.type || "未知类型"}`);
         notify("请选择视频文件", "error");
         return;
       }
       if (input.file.size > 200 * 1024 * 1024) {
+        log.warn("upload", "视频超过大小限制", `${input.file.name} · ${(input.file.size / 1024 / 1024).toFixed(1)}MB`);
         notify("视频超过 200MB，请压缩后再传", "error");
         return;
       }
@@ -246,6 +262,7 @@ export default function App() {
         createdAt: Date.now(),
       };
       setData((prev) => ({ ...prev, episodes: [...prev.episodes, episode] }));
+      log.info("upload", "上传剧集成功", `${episode.title} · 第 ${number} 集 · ${(input.file.size / 1024 / 1024).toFixed(1)}MB`);
       notify("剧集已上传并发布");
     },
     publishImported: async (input) => {
@@ -279,16 +296,24 @@ export default function App() {
         series: [series, ...prev.series],
         episodes: [...prev.episodes, episode],
       }));
+      log.info(
+        "import",
+        "StoryLoom 项目已发布",
+        `《${series.title}》· ${(input.blob.size / 1024).toFixed(0)}KB · ${input.priceCoins} 币 · series=${seriesId}`,
+      );
       return seriesId;
     },
-    updateEpisode: (id, patch) =>
+    updateEpisode: (id, patch) => {
+      log.info("creator", "更新剧集", `${id} · ${Object.keys(patch).join(",")}`);
       setData((prev) => ({
         ...prev,
         episodes: prev.episodes.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-      })),
+      }));
+    },
     deleteEpisode: (id) => {
       const episode = data.episodes.find((item) => item.id === id);
       if (episode?.videoKey.startsWith("idb:")) void deleteBlob(episode.videoKey.slice(4));
+      log.info("creator", "删除剧集", `${id} · ${episode?.title ?? "未知"}`);
       setData((prev) => ({ ...prev, episodes: prev.episodes.filter((item) => item.id !== id) }));
     },
     withdraw,
@@ -348,6 +373,8 @@ export default function App() {
         </div>
       </Modal>
 
+      <LogPanel open={logOpen} onClose={() => setLogOpen(false)} />
+
       {toast ? (
         <div
           role="status"
@@ -375,6 +402,7 @@ export default function App() {
         onClose={() => setRoute({ name: "series", id: playerEpisode.seriesId })}
         onSelect={(episode) => requestPlay(episode)}
         onUnlock={(episode) => setPending(episode)}
+        onOpenLogs={() => setLogOpen(true)}
       />
       {overlays}
       </>
@@ -417,6 +445,7 @@ export default function App() {
               </span>
             ) : null}
             <span className="chip">{data.wallet.balanceCoins} 币</span>
+            <Button variant="plain" className="px-2 text-white/55" onClick={() => setLogOpen(true)}>日志</Button>
             <Button variant="primary" onClick={() => setRechargeOpen(true)}>充值</Button>
           </div>
         </div>
@@ -475,6 +504,13 @@ export default function App() {
               {item.label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setLogOpen(true)}
+            className="flex-1 py-3 text-[11px] text-white/45 transition hover:text-white"
+          >
+            日志
+          </button>
         </div>
       </nav>
 

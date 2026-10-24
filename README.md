@@ -62,6 +62,8 @@ npm run dev        # http://127.0.0.1:5210
 
 **创作端**：新建剧集、上传本地视频（IndexedDB，≤200MB）、单集上下架、删除、StoryLoom 导入与浏览器内合成、数据看板、提现申请（模拟）。
 
+**运行日志**：顶部「日志」查看、筛选和下载运行日志；自动记录启动、播放、解锁、导入、合成、上传、存储失败和未捕获异常，最多保留 200 条在本机。
+
 **数据**：剧集/钱包/账单在 `localStorage`；视频二进制在 IndexedDB；封面压到 720px 宽。
 
 ## 上线还缺什么
@@ -81,5 +83,7 @@ npm run dev        # http://127.0.0.1:5210
 React 19 · TypeScript · Vite 6 · Tailwind CSS 4 · 浏览器 Canvas / MediaRecorder / IndexedDB · Playwright（开发期回归）
 
 ![剧浪移动端](docs/screenshot-mobile.png)
+
+![运行日志](docs/log-panel.png)
 
 ![StoryLoom](docs/storyloom-desktop.png)

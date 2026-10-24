@@ -27,16 +27,16 @@ body {
   .panel { @apply rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm; }
   .btn {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium
-      transition disabled:cursor-not-allowed disabled:opacity-40;
+      transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium
-      transition disabled:cursor-not-allowed disabled:opacity-40
+      transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40
       bg-gradient-to-b from-amber-400 to-amber-500 text-ink-950 shadow-lg shadow-amber-900/30 hover:from-amber-300 hover:to-amber-400;
   }
   .btn-ghost {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium
-      transition disabled:cursor-not-allowed disabled:opacity-40
+      transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40
       border border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white;
   }
   .field {

@@ -25,16 +25,16 @@ body {
 @layer components {
   .btn {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium
-      transition disabled:cursor-not-allowed disabled:opacity-40;
+      transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium
-      transition disabled:cursor-not-allowed disabled:opacity-40
+      transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40
       bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-900/40 hover:from-rose-400 hover:to-rose-500;
   }
   .btn-ghost {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium
-      transition disabled:cursor-not-allowed disabled:opacity-40
+      transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40
       border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08];
   }
   .field {

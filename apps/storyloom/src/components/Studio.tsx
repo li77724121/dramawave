@@ -5,11 +5,13 @@ import { ExportPanel } from "./ExportPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { ScriptPanel } from "./ScriptPanel";
 import { Button } from "./ui";
+import { LogPanel } from "./LogPanel";
 import { parseScript } from "../lib/parser";
 import { composePrompt } from "../lib/prompt";
 import { generateImage, fileToDataUrl } from "../lib/generate";
 import { loadProjects, saveProjects } from "../lib/storage";
 import { SAMPLE_SCRIPT } from "../lib/sample";
+import { log } from "../lib/logger";
 import { uid, type Project, type Shot, type TabId } from "../lib/types";
 
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -35,12 +37,14 @@ export function Studio() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
   const toastTimer = useRef<number | null>(null);
   const importRef = useRef<HTMLInputElement | null>(null);
 
   const project = projects.find((item) => item.id === activeId) ?? projects[0];
 
   const notify = useCallback((message: string, tone: "ok" | "error" = "ok") => {
+    if (tone === "error") log.warn("ui", message);
     setToast({ message, tone });
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 2600);
@@ -51,7 +55,9 @@ export function Studio() {
       saveProjects(projects);
       setStorageWarning(null);
     } catch (error) {
-      setStorageWarning(error instanceof Error ? error.message : "本地保存失败");
+      const message = error instanceof Error ? error.message : "本地保存失败";
+      setStorageWarning(message);
+      log.error("storage", "项目保存失败", error);
     }
   }, [projects]);
 
@@ -102,6 +108,7 @@ export function Studio() {
     });
     updateProject({ shots });
     setTab("board");
+    log.info("script", "拆分为分镜", `${shots.length} 个镜头`);
     notify(`已拆分为 ${shots.length} 个镜头`);
   }, [notify, project, updateProject]);
 
@@ -110,15 +117,16 @@ export function Studio() {
       if (!project) return false;
       const prompt = shot.prompt.trim() || composePrompt(project, shot);
       patchShot(shot.id, { status: "generating", prompt, error: undefined });
+      log.info("generate", "开始生成镜头", `第 ${shot.index + 1} 镜 · seed ${shot.seed}`);
       try {
         const image = await generateImage(prompt, project.aspect, shot.seed);
         patchShot(shot.id, { status: "ready", image, error: undefined });
+        log.info("generate", "镜头生成完成", `第 ${shot.index + 1} 镜 · ${Math.round(image.length / 1024)}KB`);
         return true;
       } catch (error) {
-        patchShot(shot.id, {
-          status: "error",
-          error: error instanceof Error ? error.message : "生成失败",
-        });
+        const message = error instanceof Error ? error.message : "生成失败";
+        patchShot(shot.id, { status: "error", error: message });
+        log.error("generate", `第 ${shot.index + 1} 镜生成失败`, error);
         return false;
       }
     },
@@ -128,12 +136,15 @@ export function Studio() {
   const handleGenerateAll = useCallback(async () => {
     if (!project || generatingAll) return;
     setGeneratingAll(true);
+    const pending = project.shots.filter((shot) => !shot.image).length;
+    log.info("generate", "批量生成开始", `${pending} 个镜头待生成`);
     let index = 0;
     for (const shot of project.shots) {
       if (shot.image) continue;
       const ok = await generateOne(shot);
       index += 1;
       if (!ok) {
+        log.warn("generate", "批量生成中断", `已处理 ${index} 个镜头`);
         notify("生成中断：免费端点有频率限制，可稍后逐张重试或上传图片", "error");
         break;
       }
@@ -141,6 +152,7 @@ export function Studio() {
         await new Promise((resolve) => window.setTimeout(resolve, 1500));
       }
     }
+    log.info("generate", "批量生成结束");
     setGeneratingAll(false);
   }, [generateOne, generatingAll, notify, project]);
 
@@ -149,8 +161,10 @@ export function Studio() {
       try {
         const dataUrl = await fileToDataUrl(file);
         patchShot(id, { image: dataUrl, status: "ready", error: undefined });
+        log.info("upload", "上传镜头图片", `${file.name} · ${(file.size / 1024).toFixed(0)}KB`);
         notify("已上传镜头图片");
-      } catch {
+      } catch (error) {
+        log.error("upload", "图片读取失败", error);
         notify("图片读取失败", "error");
       }
     },
@@ -190,8 +204,10 @@ export function Studio() {
         };
         setProjects((prev) => [imported, ...prev]);
         setActiveId(imported.id);
+        log.info("import", "项目导入成功", `《${imported.title}》· ${imported.shots.length} 镜`);
         notify("项目已导入");
       } catch (error) {
+        log.error("import", "项目导入失败", error);
         notify(error instanceof Error ? error.message : "导入失败", "error");
       }
     },
@@ -211,7 +227,7 @@ export function Studio() {
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold leading-tight text-white">StoryLoom</p>
-            <p className="text-[10px] text-white/35">AI 短剧分镜工坊</p>
+            <p className="hidden text-[10px] text-white/35 sm:block">AI 短剧分镜工坊</p>
           </div>
           <div className="ml-2 hidden items-center gap-1.5 md:flex">
             <span className="chip">本地保存</span>
@@ -222,7 +238,7 @@ export function Studio() {
               aria-label="切换项目"
               value={project.id}
               onChange={(event) => setActiveId(event.target.value)}
-              className="field w-32 lg:hidden"
+              className="field hidden w-28 sm:block lg:hidden lg:w-32"
             >
               {projects.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -231,10 +247,13 @@ export function Studio() {
               ))}
             </select>
             {storageWarning ? (
-              <span className="hidden text-[10.5px] text-rose-300 sm:inline">{storageWarning}</span>
+              <span className="hidden max-w-[180px] truncate text-[10.5px] text-rose-300 lg:inline" title={storageWarning}>
+                {storageWarning}
+              </span>
             ) : null}
-            <Button onClick={() => importRef.current?.click()}>导入</Button>
-            <Button variant="primary" onClick={createProject}>+ 新项目</Button>
+            <Button className="px-2" onClick={() => setLogOpen(true)}>日志</Button>
+            <Button className="hidden sm:inline-flex" onClick={() => importRef.current?.click()}>导入</Button>
+            <Button variant="primary" onClick={createProject}>+ 新建</Button>
             <input
               ref={importRef}
               type="file"
@@ -248,6 +267,24 @@ export function Studio() {
             />
           </div>
         </div>
+        <div className="flex items-center gap-2 border-t border-white/5 px-4 py-2 sm:hidden">
+          <select
+            aria-label="切换项目"
+            value={project.id}
+            onChange={(event) => setActiveId(event.target.value)}
+            className="field min-w-0 flex-1"
+          >
+            {projects.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.title || "未命名"}
+              </option>
+            ))}
+          </select>
+          <Button onClick={() => importRef.current?.click()}>导入</Button>
+        </div>
+        {storageWarning ? (
+          <p className="px-4 pb-2 text-[10px] text-rose-300 sm:hidden">{storageWarning}</p>
+        ) : null}
       </header>
 
       <div className="mx-auto flex w-full max-w-[1500px] flex-1 gap-4 px-4 py-4">
@@ -344,6 +381,8 @@ export function Studio() {
           {tab === "export" ? <ExportPanel project={project} notify={notify} /> : null}
         </main>
       </div>
+
+      <LogPanel open={logOpen} onClose={() => setLogOpen(false)} />
 
       {toast ? (
         <div

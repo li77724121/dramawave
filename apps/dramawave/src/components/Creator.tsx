@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { fenToYuan, splitRevenue } from "../lib/money";
 import { fileToCover } from "../lib/image";
 import { parseStoryloomProject, renderStoryloomVideo, type StoryloomProject } from "../lib/storyloom";
+import { log } from "../lib/logger";
 import type { AppData, Episode, Series } from "../lib/types";
 import type { AppActions } from "../App";
 import { Button, Empty, Modal, TextArea, TextInput } from "./ui";
@@ -149,8 +150,16 @@ export function Creator({ data, actions }: Props) {
                       const project = parseStoryloomProject(text);
                       setParsed(project);
                       setProgress(0);
+                      log.info(
+                        "import",
+                        "解析 StoryLoom 项目成功",
+                        `《${project.title}》· ${project.shots.length} 镜 · ${project.shots.reduce((sum, shot) => sum + shot.duration, 0)} 秒`,
+                      );
                     })
-                    .catch((error) => actions.notify(error instanceof Error ? error.message : "导入失败", "error"))
+                    .catch((error) => {
+                      log.error("import", "解析 StoryLoom 项目失败", error);
+                      actions.notify(error instanceof Error ? error.message : "导入失败", "error");
+                    })
                     // 清空 input，方便修正后重新选同一个文件
                     .finally(() => {
                       input.value = "";
@@ -206,8 +215,15 @@ export function Creator({ data, actions }: Props) {
                     void (async () => {
                       setRendering(true);
                       setProgress(0);
+                      const startedAt = performance.now();
+                      log.info("render", "开始合成视频", `《${parsed.title}》· ${parsed.shots.length} 镜`);
                       try {
                         const blob = await renderStoryloomVideo(parsed, setProgress);
+                        log.info(
+                          "render",
+                          "视频合成完成",
+                          `${(blob.size / 1024).toFixed(0)}KB · 耗时 ${Math.round(performance.now() - startedAt)}ms`,
+                        );
                         const id = await actions.publishImported({
                           title: parsed.title,
                           synopsis: parsed.logline,
@@ -220,6 +236,7 @@ export function Creator({ data, actions }: Props) {
                         setParsed(null);
                         setExpanded(id);
                       } catch (error) {
+                        log.error("render", "合成或发布失败", error);
                         actions.notify(error instanceof Error ? error.message : "合成失败", "error");
                       } finally {
                         setRendering(false);
@@ -258,7 +275,10 @@ export function Creator({ data, actions }: Props) {
                 if (!file) return;
                 void fileToCover(file)
                   .then((cover) => setForm((prev) => ({ ...prev, cover })))
-                  .catch(() => actions.notify("封面处理失败", "error"))
+                  .catch(() => {
+                    log.error("creator", "封面处理失败", `${file.name} · ${file.type}`);
+                    actions.notify("封面处理失败", "error");
+                  })
                   .finally(() => {
                     input.value = "";
                   });
@@ -384,8 +404,9 @@ function EpisodeUpload({ seriesId, actions }: { seriesId: string; actions: AppAc
       await actions.addEpisode(seriesId, { title, priceCoins: price, file });
       setTitle("");
       setFile(null);
-    } catch {
-      actions.notify("上传失败", "error");
+    } catch (error) {
+      log.error("upload", "上传失败", error);
+      actions.notify(error instanceof Error ? error.message : "上传失败", "error");
     } finally {
       setBusy(false);
     }

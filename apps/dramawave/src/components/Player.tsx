@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getBlob } from "../lib/storage";
+import { log } from "../lib/logger";
 import type { Episode, Series } from "../lib/types";
 import { Button } from "./ui";
 
@@ -11,9 +12,10 @@ interface Props {
   onClose: () => void;
   onSelect: (episode: Episode) => void;
   onUnlock: (episode: Episode) => void;
+  onOpenLogs: () => void;
 }
 
-export function Player({ episode, series, episodes, unlocked, onClose, onSelect, onUnlock }: Props) {
+export function Player({ episode, series, episodes, unlocked, onClose, onSelect, onUnlock, onOpenLogs }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ended, setEnded] = useState(false);
@@ -31,13 +33,17 @@ export function Player({ episode, series, episodes, unlocked, onClose, onSelect,
           if (cancelled) return;
           if (!blob) {
             setError("视频文件缺失（可能被浏览器清理）");
+            log.error("play", "视频文件缺失", `${episode.id} · ${episode.videoKey}`);
             return;
           }
           const next = URL.createObjectURL(blob);
           objectUrl.current = next;
           setUrl(next);
         })
-        .catch(() => setError("无法读取本地视频"));
+        .catch((error) => {
+          log.error("play", "读取本地视频失败", error);
+          setError("无法读取本地视频");
+        });
     } else {
       setUrl(episode.videoKey);
     }
@@ -82,7 +88,14 @@ export function Player({ episode, series, episodes, unlocked, onClose, onSelect,
           </p>
           <p className="truncate text-[10.5px] text-white/40">{episode.title}</p>
         </div>
-        <span className="ml-auto text-[10.5px] text-white/35">
+        <button
+          type="button"
+          onClick={onOpenLogs}
+          className="ml-auto rounded-lg bg-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:bg-white/15"
+        >
+          日志
+        </button>
+        <span className="text-[10.5px] text-white/35">
           {episode.priceCoins === 0 ? "免费" : `已解锁 · ${episode.priceCoins} 币`}
         </span>
       </div>
@@ -103,7 +116,10 @@ export function Player({ episode, series, episodes, unlocked, onClose, onSelect,
             autoPlay
             playsInline
             onEnded={() => setEnded(true)}
-            onError={() => setError("视频解码失败，换一集试试")}
+            onError={() => {
+              log.error("play", "视频解码失败", episode.videoKey);
+              setError("视频解码失败，换一集试试");
+            }}
           />
         ) : (
           <p className="text-[12px] text-white/40">正在加载视频…</p>

@@ -1,5 +1,6 @@
 import type { Project } from "../lib/types";
 import { downloadProjectJson, downloadZip, toCsv, toSrt, downloadBlob } from "../lib/exporters";
+import { log } from "../lib/logger";
 import { Button } from "./ui";
 
 interface Props {
@@ -14,20 +15,25 @@ export function ExportPanel({ project, notify }: Props) {
   const exportCsv = () => {
     const blob = new Blob([toCsv(project)], { type: "text/csv;charset=utf-8" });
     downloadBlob(blob, `${project.title || "project"}-shotlist.csv`);
+    log.info("export", "导出分镜表 CSV", `${project.shots.length} 行`);
     notify("分镜表已导出");
   };
 
   const exportSrt = () => {
     const blob = new Blob([toSrt(project)], { type: "text/plain;charset=utf-8" });
     downloadBlob(blob, `${project.title || "project"}.srt`);
+    log.info("export", "导出字幕 SRT", `${project.shots.length} 条`);
     notify("字幕已导出");
   };
 
   const exportZip = async () => {
     try {
+      const startedAt = performance.now();
       await downloadZip(project);
+      log.info("export", "导出素材包 ZIP", `${ready} 张图 · ${Math.round(performance.now() - startedAt)}ms`);
       notify("素材包已导出");
     } catch (error) {
+      log.error("export", "导出素材包失败", error);
       notify(error instanceof Error ? error.message : "导出失败", "error");
     }
   };
@@ -46,6 +52,7 @@ export function ExportPanel({ project, notify }: Props) {
             variant="primary"
             onClick={() => {
               downloadProjectJson(project);
+              log.info("export", "导出项目 JSON（发布到剧浪）", project.title);
               notify("已导出项目 JSON，去剧浪创作者中心导入即可合成视频");
             }}
           >
