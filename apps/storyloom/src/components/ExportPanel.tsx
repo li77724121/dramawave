@@ -11,9 +11,17 @@ interface Props {
 export function ExportPanel({ project, notify }: Props) {
   const ready = project.shots.filter((shot) => shot.image).length;
   const total = project.shots.reduce((sum, shot) => sum + shot.duration, 0);
-  // 本地开发指向 5220；GitHub Pages 下 StoryLoom 位于 /dramawave/storyloom/，上一级即剧浪。
-  const dramaUrl = import.meta.env.DEV
-    ? "http://127.0.0.1:5220"
+  // 本机用 5220；GitHub Pages 下 StoryLoom 在 /dramawave/storyloom/，上一级即剧浪。
+  const host = window.location.hostname;
+  const isLocal =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".local") ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+  const dramaUrl = isLocal
+    ? `${window.location.protocol}//${host}:5220/`
     : new URL("../", window.location.href).href;
 
   const exportCsv = () => {

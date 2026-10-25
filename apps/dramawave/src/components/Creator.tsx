@@ -3,7 +3,7 @@ import { fenToYuan, splitRevenue } from "../lib/money";
 import { fileToCover } from "../lib/image";
 import { parseStoryloomProject, renderStoryloomVideo, type StoryloomProject } from "../lib/storyloom";
 import { log } from "../lib/logger";
-import { demoAsset } from "../lib/assets";
+import { demoAsset, isLocalDevHost } from "../lib/assets";
 import type { AppData, Episode, Series } from "../lib/types";
 import type { AppActions } from "../App";
 import { Button, Empty, Modal, TextArea, TextInput } from "./ui";
@@ -23,9 +23,9 @@ export function Creator({ data, actions }: Props) {
   const [importPrice, setImportPrice] = useState(20);
   const [rendering, setRendering] = useState(false);
   const [progress, setProgress] = useState(0);
-  // 本地指向 5210；Pages 部署时剧浪在 /dramawave/，同级 storyloom/ 即分镜工坊。
-  const storyloomUrl = import.meta.env.DEV
-    ? "http://127.0.0.1:5210"
+  // 本机用 5210；GitHub Pages 下剧浪在 /dramawave/，同级 storyloom/ 即分镜工坊。
+  const storyloomUrl = isLocalDevHost()
+    ? `${window.location.protocol}//${window.location.hostname}:5210/`
     : new URL("storyloom/", window.location.href).href;
 
   const mySeries = useMemo(
