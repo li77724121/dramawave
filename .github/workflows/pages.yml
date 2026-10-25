@@ -1,0 +1,55 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            apps/dramawave/package-lock.json
+            apps/storyloom/package-lock.json
+      - name: Build DramaWave
+        run: |
+          npm ci --prefix apps/dramawave --include=dev
+          npm run build --prefix apps/dramawave -- --base=/dramawave/
+      - name: Build StoryLoom
+        run: |
+          npm ci --prefix apps/storyloom --include=dev
+          npm run build --prefix apps/storyloom -- --base=/dramawave/storyloom/
+      - name: Assemble site
+        run: |
+          mkdir -p site/storyloom
+          cp -R apps/dramawave/dist/. site/
+          cp -R apps/storyloom/dist/. site/storyloom/
+          touch site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

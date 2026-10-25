@@ -3,6 +3,7 @@ import { fenToYuan, splitRevenue } from "../lib/money";
 import { fileToCover } from "../lib/image";
 import { parseStoryloomProject, renderStoryloomVideo, type StoryloomProject } from "../lib/storyloom";
 import { log } from "../lib/logger";
+import { demoAsset } from "../lib/assets";
 import type { AppData, Episode, Series } from "../lib/types";
 import type { AppActions } from "../App";
 import { Button, Empty, Modal, TextArea, TextInput } from "./ui";
@@ -22,6 +23,10 @@ export function Creator({ data, actions }: Props) {
   const [importPrice, setImportPrice] = useState(20);
   const [rendering, setRendering] = useState(false);
   const [progress, setProgress] = useState(0);
+  // 本地指向 5210；Pages 部署时剧浪在 /dramawave/，同级 storyloom/ 即分镜工坊。
+  const storyloomUrl = import.meta.env.DEV
+    ? "http://127.0.0.1:5210"
+    : new URL("storyloom/", window.location.href).href;
 
   const mySeries = useMemo(
     () => data.series.filter((series) => series.creator === data.creatorName),
@@ -54,7 +59,7 @@ export function Creator({ data, actions }: Props) {
       title: form.title,
       synopsis: form.synopsis,
       tags: form.tags.split(/[,，\s]+/).filter(Boolean),
-      cover: form.cover || "/demo/cover1.jpg",
+      cover: form.cover || demoAsset("cover1.jpg"),
     });
     setCreateOpen(false);
     setForm({ title: "", synopsis: "", tags: "", cover: "" });
@@ -167,7 +172,16 @@ export function Creator({ data, actions }: Props) {
                 }}
               />
               <p className="text-[10.5px] text-white/30">
-                还没有项目？去 StoryLoom（本地 5210）完成分镜后，在「导出」页点「发布到剧浪」。
+                还没有项目？去{" "}
+                <a
+                  href={storyloomUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-rose-300 underline decoration-rose-300/40 underline-offset-2 hover:text-rose-200"
+                >
+                  StoryLoom
+                </a>{" "}
+                完成分镜后，在「导出」页点「发布到剧浪」。
               </p>
             </>
           ) : (
@@ -227,7 +241,7 @@ export function Creator({ data, actions }: Props) {
                         const id = await actions.publishImported({
                           title: parsed.title,
                           synopsis: parsed.logline,
-                          cover: parsed.shots[0]?.image ?? "/demo/cover1.jpg",
+                          cover: parsed.shots[0]?.image ?? demoAsset("cover1.jpg"),
                           blob,
                           priceCoins: importPrice,
                         });

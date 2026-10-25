@@ -11,6 +11,10 @@ interface Props {
 export function ExportPanel({ project, notify }: Props) {
   const ready = project.shots.filter((shot) => shot.image).length;
   const total = project.shots.reduce((sum, shot) => sum + shot.duration, 0);
+  // 本地开发指向 5220；GitHub Pages 下 StoryLoom 位于 /dramawave/storyloom/，上一级即剧浪。
+  const dramaUrl = import.meta.env.DEV
+    ? "http://127.0.0.1:5220"
+    : new URL("../", window.location.href).href;
 
   const exportCsv = () => {
     const blob = new Blob([toCsv(project)], { type: "text/csv;charset=utf-8" });
@@ -60,7 +64,7 @@ export function ExportPanel({ project, notify }: Props) {
           </Button>
           <a
             className="btn-ghost justify-center"
-            href="http://127.0.0.1:5220"
+            href={dramaUrl}
             target="_blank"
             rel="noreferrer"
           >

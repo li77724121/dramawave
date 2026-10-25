@@ -10,6 +10,7 @@ import { loadData, putBlob, saveData, deleteBlob } from "./lib/storage";
 import { splitRevenue, formatCoins, fenToYuan } from "./lib/money";
 import { dataUrlToCover } from "./lib/image";
 import { getLogs, log, subscribeLogs } from "./lib/logger";
+import { demoAsset } from "./lib/assets";
 import { uid, type AppData, type Episode, type Series } from "./lib/types";
 
 export type Route =
@@ -281,7 +282,7 @@ export default function App() {
       const episodeId = uid("ep");
       const key = `video:${episodeId}`;
       await putBlob(key, input.blob);
-      const cover = await dataUrlToCover(input.cover).catch(() => "/demo/cover1.jpg");
+      const cover = await dataUrlToCover(input.cover).catch(() => demoAsset("cover1.jpg"));
       const series: Series = {
         id: seriesId,
         title: input.title,

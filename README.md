@@ -6,6 +6,13 @@ DramaBox-style vertical short-drama platform MVP. Creators publish episodes, vie
 
 > 纯前端演示：没有服务器、账号或真实支付，数据只存在当前浏览器。
 
+## 在线演示
+
+- 剧浪 DramaWave：https://li77724121.github.io/dramawave/
+- StoryLoom：https://li77724121.github.io/dramawave/storyloom/
+
+由 GitHub Actions 自动构建部署；DramaWave 在根路径，StoryLoom 在 `/storyloom/`。
+
 ![剧浪桌面端](docs/screenshot-desktop.png)
 
 ## 仓库结构
